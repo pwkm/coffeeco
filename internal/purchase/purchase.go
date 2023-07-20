@@ -2,6 +2,7 @@ package purchase
 
 import (
 	coffeeco "coffeeco/internal"
+	"coffeeco/internal/loyalty"
 	"coffeeco/internal/payment"
 	"coffeeco/internal/store"
 	"context"
@@ -61,7 +62,7 @@ type Service struct {
 	purchaseRepo Repository
 }
 
-func (s Service) CompletePurchase(ctx context.Context, purchase *Purchase) error {
+func (s Service) CompletePurchase(ctx context.Context, purchase *Purchase, coffeeBuxCard *loyalty.Coffeebux) error {
 	// Call validate and enrich
 	if err := purchase.validateAndEnrich(); err != nil {
 		return err
@@ -81,5 +82,10 @@ func (s Service) CompletePurchase(ctx context.Context, purchase *Purchase) error
 	if err := s.purchaseRepo.Store(ctx, *purchase); err != nil {
 		return errors.New("failed to store purchase")
 	}
+
+	if coffeeBuxCard != nil {
+		coffeeBuxCard.AddStamp()
+	}
+
 	return nil
 }
