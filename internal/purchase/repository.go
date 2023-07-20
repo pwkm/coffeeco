@@ -17,7 +17,7 @@ import (
 // ------------------------ REPOSITORY INTERFACE --------------------------------------
 //
 // ------------------------------------------------------------------------------------
-type repository interface {
+type Repository interface {
 	Store(ctx context.Context, purchase Purchase) error
 }
 
