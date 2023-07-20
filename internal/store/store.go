@@ -1,8 +1,13 @@
 package store
 
-import "github.com/google/uuid"
+import (
+	coffeeco "coffeeco/internal"
+
+	"github.com/google/uuid"
+)
 
 type Store struct {
-	ID       uuid.UUID
-	Location string
+	ID              uuid.UUID
+	Location        string
+	ProductsForSale []coffeeco.Product
 }
