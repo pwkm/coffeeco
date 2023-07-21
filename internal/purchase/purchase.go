@@ -7,6 +7,8 @@ import (
 	"coffeeco/internal/store"
 	"context"
 	"errors"
+	"fmt"
+	"log"
 	"time"
 
 	"github.com/Rhymond/go-money"
@@ -53,6 +55,14 @@ type CardChargeService interface {
 	ChargeCard(ctx context.Context, amount money.Money, cardToken string) error
 }
 
+// ---------------- StoreService SERVICE INTERFACE ----------------------
+//
+// ---------------------------------------------------------------------
+type StoreService interface {
+	GetStoreSpecificDiscount(ctx context.Context, storeID
+ uuid.UUID) (float32, error)
+ }
+
 // ---------------------------- SERVICE -------------------------------
 //
 // --------------------------------------------------------------------
@@ -60,6 +70,8 @@ type CardChargeService interface {
 type Service struct {
 	cardService  CardChargeService
 	purchaseRepo Repository
+	storeService StoreService
+
 }
 
 func (s Service) CompletePurchase(ctx context.Context, purchase *Purchase, coffeeBuxCard *loyalty.Coffeebux) error {
@@ -67,6 +79,19 @@ func (s Service) CompletePurchase(ctx context.Context, purchase *Purchase, coffe
 	if err := purchase.validateAndEnrich(); err != nil {
 		return err
 	}
+
+	discount, err := s.storeService.
+	GetStoreSpecificDiscount(ctx, storeID)
+	   if err != nil && err != store.ErrNoDiscount {
+		  return fmt.Errorf("failed to get discount: %w",
+	err)
+	}
+
+	purchasePrice := purchase.total
+	if discount > 0 {
+	   purchasePrice = *purchasePrice.Multiply(int64(100 - discount))
+	}
+	
 	// execute purchase
 	switch purchase.PaymentMeans {
 	case payment.MEANS_CARD:
@@ -75,6 +100,12 @@ func (s Service) CompletePurchase(ctx context.Context, purchase *Purchase, coffe
 		}
 	case payment.MEANS_CASH:
 		// TODO: For the reader to add
+		log.Printf("Order purchase by cash for amount %v", purchase.total)
+
+	case payment.MEANS_COFFEEBUX:
+		if err := coffeeBuxCard.Pay(ctx, purchase.ProductsToPurchase); err != nil {
+			return fmt.Errorf("failed to charge loyalty card: %w", err)
+		}
 	default:
 		return errors.New("unknwon payment type")
 	}
@@ -89,3 +120,4 @@ func (s Service) CompletePurchase(ctx context.Context, purchase *Purchase, coffe
 
 	return nil
 }
+

@@ -3,6 +3,9 @@ package loyalty
 import (
 	coffeeco "coffeeco/internal"
 	"coffeeco/internal/store"
+	"context"
+	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -22,4 +25,18 @@ func (c *Coffeebux) AddStamp() {
 	} else {
 		c.RemainingDrinkPurchasesUntilFreeDrink--
 	}
+}
+
+func (c *Coffeebux) Pay(ctx context.Context, purchases []coffeeco.Product) error {
+	lp := len(purchases)
+	if lp == 0 {
+		return errors.New("nothing to buy")
+	}
+
+	if c.FreeDrinksAvailable < lp {
+		return fmt.Errorf("not enough coffeeBux to cover entire purchase. Have %d, need %d", len(purchases), c.FreeDrinksAvailable)
+	}
+
+	c.FreeDrinksAvailable = c.FreeDrinksAvailable - lp
+	return nil
 }
