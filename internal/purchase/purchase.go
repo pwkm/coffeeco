@@ -91,6 +91,7 @@ func (s Service) CompletePurchase(ctx context.Context, storeID uuid.UUID, purcha
 		}
 	case payment.MEANS_CASH:
 	// For the reader to add :)
+
 	case payment.MEANS_COFFEEBUX:
 		if err := coffeeBuxCard.Pay(ctx, purchase.ProductsToPurchase); err != nil {
 			return fmt.Errorf("failed to charge loyatlycard: %w", err)

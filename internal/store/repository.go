@@ -24,6 +24,13 @@ type MongoRepository struct {
 	storeDiscounts *mongo.Collection
 }
 
+func (m MongoRepository) Ping(ctx context.Context) error {
+	if _, err := m.storeDiscounts.EstimatedDocumentCount(ctx); err != nil {
+		return fmt.Errorf("failed to ping DB: %w", err)
+	}
+	return nil
+}
+
 func NewMongoRepo(ctx context.Context, connectionString string) (*MongoRepository, error) {
 
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(connectionString))
@@ -47,11 +54,4 @@ func (m MongoRepository) GetStoreDiscount(ctx context.Context, storeID uuid.UUID
 		return 0, fmt.Errorf("failed to find discount for store: %w", err)
 	}
 	return discount, nil
-}
-
-func (m MongoRepository) Ping(ctx context.Context) error {
-	if _, err := m.storeDiscounts.EstimatedDocumentCount(ctx); err != nil {
-		return fmt.Errorf("failed to ping DB: %w", err)
-	}
-	return nil
 }

@@ -51,24 +51,36 @@ func (mr *MongoRepository) Store(ctx context.Context, purchase Purchase) error {
 }
 
 type mongoPurchase struct {
-	id                uuid.UUID
-	store             store.Store
-	productToPurchase []coffeeco.Product
-	total             money.Money
-	PaymentMeans      payment.Means
-	timeofPurchase    time.Time
-	cardToken         *string
+	ID                uuid.UUID          `bson:"ID"`
+	Store             store.Store        `bson:"Store"`
+	ProductToPurchase []coffeeco.Product `bson: "products_purchased"`
+	Total             money.Money        `bson: "purchase_total"`
+	PaymentMeans      payment.Means      `bson:"payment_means"`
+	TimeofPurchase    time.Time          `bson: "created_at"`
+	CardToken         *string            `bson: "card_token"`
 }
 
 func toMongoPurchase(p Purchase) mongoPurchase {
 	return mongoPurchase{
-		id:                p.id,
-		store:             p.Store,
-		productToPurchase: p.ProductsToPurchase,
-		total:             p.total,
+		ID:                p.id,
+		Store:             p.Store,
+		ProductToPurchase: p.ProductsToPurchase,
+		Total:             p.total.Amount(),
 		PaymentMeans:      p.PaymentMeans,
-		timeofPurchase:    p.timeofPurchase,
-		cardToken:         p.CardToken,
+		TimeofPurchase:    p.timeofPurchase,
+		CardToken:         p.CardToken,
+	}
+}
+
+func (m mongoPurchase) ToPurchase() Purchase {
+	return Purchase{
+		id:                 m.ID,
+		Store:              m.Store,
+		ProductsToPurchase: m.ProductsToPurchase,
+		total:              *money.New(m.Total, "USD"),
+		PaymentMeans:       m.PaymentMeans,
+		timeOfPurchase:     m.TimeOfPurchase,
+		CardToken:          m.CardToken,
 	}
 }
 
