@@ -19,6 +19,7 @@ import (
 // ------------------------------------------------------------------------------------
 type Repository interface {
 	Store(ctx context.Context, purchase Purchase) error
+	Ping(ctx context.Context) error
 }
 
 // --------------------------- MONGO REPOSITORY  --------------------------------------
@@ -41,7 +42,7 @@ func NewMongoRepo(ctx context.Context, connectionString string) (*MongoRepositor
 }
 
 func (mr *MongoRepository) Store(ctx context.Context, purchase Purchase) error {
-	mongoP := New(purchase)
+	mongoP := toMongoPurchase(purchase)
 	_, err := mr.purchases.InsertOne(ctx, mongoP)
 	if err != nil {
 		return fmt.Errorf("failed to persis purchase: %w", err)
@@ -67,6 +68,13 @@ func toMongoPurchase(p Purchase) mongoPurchase {
 		total:             p.total,
 		PaymentMeans:      p.PaymentMeans,
 		timeofPurchase:    p.timeofPurchase,
-		cardToken:         p.cardToken,
+		cardToken:         p.CardToken,
 	}
+}
+
+func (mr *MongoRepository) Ping(ctx context.Context) error {
+	if _, err := mr.purchases.EstimatedDocumentCount(ctx); err != nil {
+		return fmt.Errorf("failed to ping DB: %w", err)
+	}
+	return nil
 }

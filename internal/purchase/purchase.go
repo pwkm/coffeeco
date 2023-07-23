@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/Rhymond/go-money"
@@ -25,7 +24,7 @@ type Purchase struct {
 	total              money.Money
 	PaymentMeans       payment.Means
 	timeofPurchase     time.Time
-	cardToken          *string
+	CardToken          *string
 }
 
 func (p *Purchase) validateAndEnrich() error {
@@ -59,9 +58,8 @@ type CardChargeService interface {
 //
 // ---------------------------------------------------------------------
 type StoreService interface {
-	GetStoreSpecificDiscount(ctx context.Context, storeID
- uuid.UUID) (float32, error)
- }
+	GetStoreSpecificDiscount(ctx context.Context, storeID uuid.UUID) (float32, error)
+}
 
 // ---------------------------- SERVICE -------------------------------
 //
@@ -71,53 +69,54 @@ type Service struct {
 	cardService  CardChargeService
 	purchaseRepo Repository
 	storeService StoreService
-
 }
 
-func (s Service) CompletePurchase(ctx context.Context, purchase *Purchase, coffeeBuxCard *loyalty.Coffeebux) error {
-	// Call validate and enrich
+func NewService(cardService CardChargeService, purchaseRepo Repository, storeService StoreService) *Service {
+	return &Service{cardService: cardService, purchaseRepo: purchaseRepo, storeService: storeService}
+}
+
+func (s Service) CompletePurchase(ctx context.Context, storeID uuid.UUID, purchase *Purchase, coffeeBuxCard *loyalty.Coffeebux) error {
 	if err := purchase.validateAndEnrich(); err != nil {
 		return err
 	}
 
-	discount, err := s.storeService.
-	GetStoreSpecificDiscount(ctx, storeID)
-	   if err != nil && err != store.ErrNoDiscount {
-		  return fmt.Errorf("failed to get discount: %w",
-	err)
+	if err := s.calculateStoreSpecificDiscount(ctx, storeID, purchase); err != nil {
+		return err
 	}
 
-	purchasePrice := purchase.total
-	if discount > 0 {
-	   purchasePrice = *purchasePrice.Multiply(int64(100 - discount))
-	}
-	
-	// execute purchase
 	switch purchase.PaymentMeans {
 	case payment.MEANS_CARD:
-		if err := s.cardService.ChargeCard(ctx, purchase.total, *purchase.cardToken); err != nil {
-			return errors.New("card charge failed, cancelling purchase")
+		if err := s.cardService.ChargeCard(ctx, purchase.total, *purchase.CardToken); err != nil {
+			return errors.New("card charge failed,cancelling purchase")
 		}
 	case payment.MEANS_CASH:
-		// TODO: For the reader to add
-		log.Printf("Order purchase by cash for amount %v", purchase.total)
-
+	// For the reader to add :)
 	case payment.MEANS_COFFEEBUX:
 		if err := coffeeBuxCard.Pay(ctx, purchase.ProductsToPurchase); err != nil {
-			return fmt.Errorf("failed to charge loyalty card: %w", err)
+			return fmt.Errorf("failed to charge loyatlycard: %w", err)
 		}
 	default:
-		return errors.New("unknwon payment type")
+		return errors.New("unknown payment type")
 	}
 
 	if err := s.purchaseRepo.Store(ctx, *purchase); err != nil {
 		return errors.New("failed to store purchase")
 	}
-
 	if coffeeBuxCard != nil {
 		coffeeBuxCard.AddStamp()
 	}
-
 	return nil
 }
 
+func (s *Service) calculateStoreSpecificDiscount(ctx context.Context, storeID uuid.UUID, purchase *Purchase) error {
+	discount, err := s.storeService.GetStoreSpecificDiscount(ctx, storeID)
+
+	if err != nil && err != store.ErrNoDiscount {
+		return fmt.Errorf("failed to get discount: %w", err)
+	}
+	purchasePrice := purchase.total
+	if discount > 0 {
+		purchase.total = *purchasePrice.Multiply(int64(100 - discount))
+	}
+	return nil
+}
